@@ -1,22 +1,18 @@
 import os
-from keras._tf_keras.keras.callbacks import ModelCheckpoint, LearningRateScheduler
-from keras.api.layers import Conv2D
+import tensorflow as tf
+from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras import models, layers
 
-from tensorflow.python.keras import models, layers 
 # Load the dataset
 execution_path = os.getcwd()
 data_directory = os.path.join(execution_path, 'idenprof')
-
 data_test_directory = os.path.join(data_directory, 'test')
-
+data_train_directory = os.path.join(data_directory, 'train')
 
 # Decide on the models
-model_name = 'idenprof_model-{epoch:03d}-{val_acc}.weights.h5'
+model_name = 'idenprof_model-{epoch:03d}-{val_accuracy:.4f}.weights.h5'
 model_dir = os.path.join(execution_path, 'idenprof_models')
-
-idenprof = os.listdir(data_test_directory)
-
-# print("idenprof",len(idenprof))
 
 if not os.path.isdir(model_dir):
     os.makedirs(model_dir)
@@ -25,16 +21,13 @@ modelpath = os.path.join(model_dir, model_name)
 
 # Checkpoint to save the best models only.
 checkpoint = ModelCheckpoint(filepath=modelpath,
-                monitor='val_acc',
-                verbose=1,
-                save_best_only=True,
-                save_weights_only = True)
+                             monitor='val_accuracy',
+                             verbose=1,
+                             save_best_only=True,
+                             save_weights_only=True)
 
-
-# Adjusting the Learning Rate(LR)
+# Adjusting the Learning Rate (LR)
 def lr_schedule(epoch):
-    # LR is scheduled to be reduced after 80, 120, 160, 180 epochs.
-
     lr = 1e-3
     if epoch > 180:
         lr *= 1e-4
@@ -44,48 +37,58 @@ def lr_schedule(epoch):
         lr *= 1e-2
     elif epoch > 80:
         lr *= 1e-1
-
     print("The learning rate is: ", lr)
     return lr
 
-lr_schedule = LearningRateScheduler(lr_schedule)
+lr_scheduler = LearningRateScheduler(lr_schedule)
 
-# print(lr_schedule)
-# Building the model
-# Cov2D()->Filters in a model
-# Level of Cov2D filters: 32, 64, 128
-def resnet_model(input, channel_depth):
-    Conv2D(level=32,filters=channel_depth, kernel_size=200, padding="same")
-    Conv2D(level=64,filters=channel_depth, kernel_size=200, padding="same")
-    Conv2D(level=128,filters=channel_depth, kernel_size=200, padding="same")
+# Image data generators for loading and augmenting images
+train_datagen = ImageDataGenerator(rescale=1.0/255,
+                                   shear_range=0.2,
+                                   zoom_range=0.2,
+                                   horizontal_flip=True)
 
-    strided_pool = 0
-    
-    for i in idenprof:
-        strided_pool += i
+test_datagen = ImageDataGenerator(rescale=1.0/255)
 
-    return strided_pool
+train_generator = train_datagen.flow_from_directory(data_train_directory,
+                                                    target_size=(100, 100),
+                                                    batch_size=32,
+                                                    class_mode='binary')
 
+validation_generator = test_datagen.flow_from_directory(data_test_directory,
+                                                        target_size=(100, 100),
+                                                        batch_size=32,
+                                                        class_mode='binary')
 
 # Model creation
 model = models.Sequential([
-    layers.Conv2D(32, (3,3), activation='relu', input_shape=(100, 100)),
-    layers.Flatten(),
-    layers.Conv2D(64, (3,3), activation='relu', input_shape=(100, 100)),
-    layers.Flatten(),
-    layers.Conv2D(128, (3,3), activation='relu', input_shape=(100, 100)),
+    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(100, 100, 3)),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(64, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
     layers.Flatten(),
     layers.Dense(512, activation='relu'),
-    layers.Dense(1, activation='sigmoid')])
+    layers.Dense(1, activation='sigmoid')
+])
 
-
-
-
-    
-# Modile Compile
-model.compile(optimizer='adam', loss="percentage", metrics=["accuracy"])
-
+# Model compile
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 # Training the model
-model.fit(idenprof['chef'], idenprof['doctor'], epochs=10, batch_size=200)
+model.fit(train_generator,
+          epochs=5,
+          steps_per_epoch=train_generator.samples // train_generator.batch_size,
+          validation_data=validation_generator,
+          validation_steps=validation_generator.samples // validation_generator.batch_size,
+          callbacks=[checkpoint, lr_scheduler])
 
+# Evaluate the model
+loss, accuracy = model.evaluate(validation_generator)
+print("Validation accuracy: {:.4f}".format(accuracy))
+
+# Save the final model
+final_model_path = os.path.join(model_dir, 'final_model.h5')
+model.save(final_model_path)
+print(f"Model saved to {final_model_path}")

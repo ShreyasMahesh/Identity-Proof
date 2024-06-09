@@ -6,6 +6,7 @@ from tensorflow.keras.preprocessing import image
 modelPath = "idenprof_models/final_model.h5"
 
 model = tf.keras.models.load_model(modelPath)
+# making model
 
 def processImage(imagePath, targetSize=(100,100)):
     # gscImg = cv.cvtColor(imagePath, cv.COLOR_RGB2GRAY)

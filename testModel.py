@@ -19,8 +19,8 @@ def processImage(imagePath, targetSize=(100,100)):
 def predictImage(modelName, imgPath):
     img_array = processImage(imgPath)
     print(img_array)
-    prediction = modelName.predict(img_array)
-    return prediction
+    predictionImg = modelName.predict(img_array)
+    return predictionImg
 
 
 prediction = predictImage(modelName=model, imgPath="D:/Data Science/Machine Learning/Identity Proof/idenprof/test/pilot/pilot-176.jpg")

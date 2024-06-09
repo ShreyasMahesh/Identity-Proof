@@ -53,16 +53,18 @@ test_datagen = ImageDataGenerator(rescale=1.0/255)
 train_generator = train_datagen.flow_from_directory(data_train_directory,
                                                     target_size=(100, 100),
                                                     batch_size=32,
-                                                    class_mode='binary')
+                                                    class_mode='binary',
+                                                    color_mode='grayscale')
 
 validation_generator = test_datagen.flow_from_directory(data_test_directory,
                                                         target_size=(100, 100),
                                                         batch_size=32,
-                                                        class_mode='binary')
+                                                        class_mode='binary',
+                                                        color_mode='grayscale')
 
 # Model creation
 model = models.Sequential([
-    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(100, 100, 3)),
+    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(100, 100, 1)),
     layers.MaxPooling2D((2, 2)),
     layers.Conv2D(64, (3, 3), activation='relu'),
     layers.MaxPooling2D((2, 2)),
